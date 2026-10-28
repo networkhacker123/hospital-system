@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ChronosMed — Admin Data Panel</title>
+<link rel="stylesheet" href="/admin.css">
+</head>
+<body>
+
+<div id="layout">
+  <!-- Sidebar -->
+  <div id="sidebar">
+    <div class="sb-logo">
+      <div class="sb-logo-mark">
+        <div class="sb-logo-icon">⚕</div>
+        <div>
+          <div class="sb-logo-name">ChronosMed</div>
+          <div class="sb-logo-sub">Admin Panel</div>
+        </div>
+      </div>
+    </div>
+    <div class="sb-nav">
+      <div class="sb-section">Overview</div>
+      <div class="sb-item active" onclick="showPage('dashboard')"><span class="icon">🏠</span> Dashboard</div>
+      <div class="sb-section">Data Management</div>
+      <div class="sb-item" onclick="showPage('rooms')"><span class="icon">🏥</span> Rooms & Patients</div>
+      <div class="sb-item" onclick="showPage('medications')"><span class="icon">💊</span> Medications</div>
+      <div class="sb-item" onclick="showPage('alerts')"><span class="icon">🔔</span> Alerts <span class="sb-badge" id="sb-alert-count">—</span></div>
+      <div class="sb-section">System</div>
+      <div class="sb-item" onclick="showPage('settings')"><span class="icon">⚙️</span> Settings</div>
+    </div>
+    <div class="sb-footer">
+      <div class="db-status">
+        <div class="db-dot" id="db-dot"></div>
+        <span id="db-status-text">Connecting…</span>
+      </div>
+      <div style="margin-top:4px;">API: <span id="api-base-display" style="color:var(--cyan);">—</span></div>
+    </div>
+  </div>
+
+  <!-- Content -->
+  <div id="content">
+
+    <!-- ── DASHBOARD ── -->
+    <div id="page-dashboard" class="page active">
+      <div style="padding:28px 32px;">
+        <div class="page-header">
+          <div class="page-title">Operations overview</div>
+          <div class="page-sub">Rooms, medications and alerts at a glance</div>
+        </div>
+        <div class="stats-grid" id="stats-grid">
+          <div class="stat-card cyan"><div class="stat-val" id="stat-rooms">—</div><div class="stat-label">Total Rooms</div></div>
+          <div class="stat-card red"><div class="stat-val" id="stat-critical">—</div><div class="stat-label">Critical Patients</div></div>
+          <div class="stat-card amber"><div class="stat-val" id="stat-alerts">—</div><div class="stat-label">Active Alerts</div></div>
+          <div class="stat-card green"><div class="stat-val" id="stat-meds">—</div><div class="stat-label">Medications Tracked</div></div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">Status by Floor</div>
+              <button class="btn btn-ghost btn-sm" onclick="loadDashboard()">↻ Refresh</button>
+            </div>
+            <div class="card-body" id="floor-breakdown" style="padding:0;"></div>
+          </div>
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">Recent Alerts</div>
+              <a href="#" onclick="showPage('alerts')" style="font-size:11px;color:var(--cyan);text-decoration:none;">View all →</a>
+            </div>
+            <div class="card-body" id="recent-alerts-list"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── ROOMS ── -->
+    <div id="page-rooms" class="page">
+      <div style="padding:28px 32px;">
+        <div class="page-header flex-row">
+          <div>
+            <div class="page-title">Rooms & Patients</div>
+            <div class="page-sub">Edit patient info, status, alerts, environment, labs, and tasks</div>
+          </div>
+          <button class="btn btn-primary ml-auto" onclick="openAddRoomModal()">+ Add Room</button>
+        </div>
+        <div class="filters">
+          <select class="filter-select" id="room-floor-filter" onchange="loadRooms()">
+            <option value="">All Floors</option>
+            <option value="1">Floor 1 — Emergency Triage</option>
+            <option value="2">Floor 2 — Emergency Trauma</option>
+            <option value="3">Floor 3 — Medical ICU</option>
+            <option value="4">Floor 4 — Surgical ICU</option>
+            <option value="5">Floor 5 — Cardiac ICU</option>
+            <option value="6">Floor 6 — Internal Med</option>
+            <option value="7">Floor 7 — Cardiology</option>
+          </select>
+          <select class="filter-select" id="room-status-filter" onchange="loadRooms()">
+            <option value="">All Statuses</option>
+            <option value="critical">Critical</option>
+            <option value="amber">Amber</option>
+            <option value="ok">OK</option>
+          </select>
+          <input type="text" class="search-input" id="room-search" placeholder="Search patient, MRN, diagnosis…" oninput="filterRoomsLocal()">
+          <span id="rooms-count" style="font-size:11px;color:var(--dim);margin-left:auto;"></span>
+        </div>
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Room</th><th>Floor</th><th>Patient</th><th>MRN</th><th>Diagnosis</th><th>Status</th><th>Alert</th><th>Meds</th><th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="rooms-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── MEDICATIONS ── -->
+    <div id="page-medications" class="page">
+      <div style="padding:28px 32px;">
+        <div class="page-header flex-row">
+          <div>
+            <div class="page-title">Medication Management</div>
+            <div class="page-sub">Edit medications, dosages, timings, and statuses per patient</div>
+          </div>
+        </div>
+        <div class="filters">
+          <select class="filter-select" id="med-floor-filter" onchange="loadMedications()">
+            <option value="">All Floors</option>
+            <option value="1">Floor 1</option><option value="2">Floor 2</option><option value="3">Floor 3</option>
+            <option value="4">Floor 4</option><option value="5">Floor 5</option><option value="6">Floor 6</option>
+            <option value="7">Floor 7</option>
+          </select>
+          <select class="filter-select" id="med-status-filter" onchange="filterMedsLocal()">
+            <option value="">All Statuses</option>
+            <option value="Administered">Administered</option>
+            <option value="Pending">Pending</option>
+            <option value="Hold">Hold</option>
+            <option value="Scheduled">Scheduled</option>
+            <option value="Refused">Refused</option>
+          </select>
+          <input type="text" class="search-input" id="med-search" placeholder="Search drug, patient, room…" oninput="filterMedsLocal()">
+        </div>
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Room</th><th>Patient</th><th>Drug</th><th>Dose</th><th>Class</th><th>Times</th><th>Status</th><th>Nurse</th><th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="meds-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── ALERTS ── -->
+    <div id="page-alerts" class="page">
+      <div style="padding:28px 32px;">
+        <div class="page-header flex-row">
+          <div>
+            <div class="page-title">Alerts Feed</div>
+            <div class="page-sub">Create, manage, and acknowledge alerts for the dashboard</div>
+          </div>
+          <div class="flex-row ml-auto" style="gap:8px;">
+            <button class="btn btn-danger btn-sm" onclick="clearAllAlerts()">Clear All</button>
+            <button class="btn btn-primary" onclick="openAddAlertModal()">+ New Alert</button>
+          </div>
+        </div>
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr><th>Icon</th><th>Type</th><th>Message</th><th>Room</th><th>Severity</th><th>Acknowledged</th><th>Time</th><th>Actions</th></tr>
+            </thead>
+            <tbody id="alerts-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SETTINGS ── -->
+    <div id="page-settings" class="page">
+      <div style="padding:28px 32px;">
+        <div class="page-header">
+          <div class="page-title">System Settings</div>
+          <div class="page-sub">Manage hospital-wide configuration stored in MongoDB</div>
+        </div>
+        <div style="max-width:640px;">
+          <div class="card">
+            <div class="card-header"><div class="card-title">General</div></div>
+            <div class="card-body">
+              <div class="form-grid form-grid-2">
+                <div class="form-row"><label>Hospital Name</label><input type="text" id="s-hospital-name"></div>
+                <div class="form-row"><label>Doctor Name</label><input type="text" id="s-doctor-name"></div>
+                <div class="form-row"><label>Ward</label><input type="text" id="s-ward"></div>
+                <div class="form-row"><label>Default Floor</label><select id="s-default-floor">
+                  <option value="1">Floor 1</option><option value="2">Floor 2</option><option value="3">Floor 3</option>
+                  <option value="4">Floor 4</option><option value="5">Floor 5</option><option value="6">Floor 6</option>
+                  <option value="7">Floor 7</option>
+                </select></div>
+                <div class="form-row"><label>Alert Threshold</label><select id="s-alert-threshold">
+                  <option value="critical">Critical only</option>
+                  <option value="amber">Amber + Critical</option>
+                  <option value="all">All</option>
+                </select></div>
+                <div class="form-row"><label>Refresh Interval (sec)</label><input type="number" id="s-refresh-interval" min="5" max="300"></div>
+              </div>
+            </div>
+          </div>
+          <div style="height:14px;"></div>
+          <div class="card">
+            <div class="card-header"><div class="card-title">Feature Toggles</div></div>
+            <div class="card-body">
+              <div class="form-grid" id="settings-toggles"></div>
+            </div>
+          </div>
+          <div style="margin-top:16px;display:flex;justify-content:flex-end;">
+            <button class="btn btn-primary" onclick="saveSettings()">Save Settings</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ── MODALS ── -->
+
+<!-- Edit Room Modal -->
+<div class="modal-overlay" id="modal-room">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-room-title">Edit Room</div>
+      <button class="modal-close" onclick="closeModal('modal-room')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="edit-room-id">
+      <div class="section-label">Patient Info</div>
+      <div class="form-grid form-grid-3" style="margin-bottom:16px;">
+        <div class="form-row"><label>Room Number</label><input type="number" id="edit-room-num"></div>
+        <div class="form-row"><label>Floor</label><select id="edit-room-floor">
+          <option value="1">Floor 1</option><option value="2">Floor 2</option><option value="3">Floor 3</option>
+          <option value="4">Floor 4</option><option value="5">Floor 5</option><option value="6">Floor 6</option>
+          <option value="7">Floor 7</option>
+        </select></div>
+        <div class="form-row"><label>Ward</label><select id="edit-room-ward">
+          <option value="emergency">Emergency</option><option value="icu">ICU</option><option value="general">General</option><option value="orthopedics">Orthopedics</option><option value="pediatrics">Pediatrics</option><option value="recovery">Recovery</option>
+        </select></div>
+        <div class="form-row"><label>Patient Name</label><input type="text" id="edit-room-patient"></div>
+        <div class="form-row"><label>Age</label><input type="number" id="edit-room-age"></div>
+        <div class="form-row"><label>MRN</label><input type="text" id="edit-room-mrn"></div>
+      </div>
+      <div class="form-row" style="margin-bottom:16px;"><label>Diagnosis</label><input type="text" id="edit-room-diag"></div>
+
+      <div class="section-label">Status & Alert</div>
+      <div class="form-grid form-grid-3" style="margin-bottom:16px;">
+        <div class="form-row"><label>Status</label><select id="edit-room-status">
+          <option value="ok">OK</option><option value="amber">Amber</option><option value="critical">Critical</option>
+        </select></div>
+        <div class="form-row"><label>Alert Text</label><input type="text" id="edit-room-alert" placeholder="e.g. BP 210/130"></div>
+        <div class="form-row"><label>Alert Type</label><select id="edit-room-alert-type">
+          <option value="">None</option><option value="red">Red</option><option value="amber">Amber</option>
+        </select></div>
+      </div>
+
+      <div class="section-label">Environment</div>
+      <div class="form-grid form-grid-3" style="margin-bottom:16px;">
+        <div class="form-row"><label>HVAC Temp (°C)</label><input type="number" step="0.1" id="edit-room-temp"></div>
+        <div class="form-row"><label>Humidity (%)</label><input type="number" id="edit-room-humidity"></div>
+        <div class="form-row"><label>EVS Tech</label><input type="text" id="edit-room-evs"></div>
+      </div>
+      <div class="form-row" style="margin-bottom:16px;"><label>Notes</label><textarea id="edit-room-notes"></textarea></div>
+
+      <div class="section-label">Medications
+        <button class="btn btn-ghost btn-sm" style="margin-left:8px;font-size:10px;" onclick="addMedRow()">+ Add Med</button>
+      </div>
+      <div id="modal-meds-list" style="margin-bottom:16px;"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-room')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveRoom()">Save Room</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Medication Modal (quick edit from meds table) -->
+<div class="modal-overlay" id="modal-med">
+  <div class="modal" style="width:480px;">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-med-title">Edit medication</div>
+      <button class="modal-close" onclick="closeModal('modal-med')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="qmed-room-id">
+      <input type="hidden" id="qmed-med-id">
+      <div class="form-grid form-grid-2">
+        <div class="form-row"><label>Drug Name</label><input type="text" id="qmed-name"></div>
+        <div class="form-row"><label>Dose</label><input type="text" id="qmed-dose"></div>
+        <div class="form-row"><label>Drug Class</label><input type="text" id="qmed-class"></div>
+        <div class="form-row"><label>Prescriber</label><input type="text" id="qmed-prescriber"></div>
+        <div class="form-row"><label>Status</label><select id="qmed-status">
+          <option value="Scheduled">Scheduled</option><option value="Pending">Pending</option>
+          <option value="Administered">Administered</option><option value="Hold">Hold</option><option value="Refused">Refused</option>
+        </select></div>
+        <div class="form-row"><label>Administered By</label><input type="text" id="qmed-nurse"></div>
+      </div>
+      <div class="form-row" style="margin-top:14px;">
+        <label>Scheduled Times (click + to add)</label>
+        <div class="med-times" id="qmed-times-chips"></div>
+        <div style="display:flex;gap:6px;margin-top:8px;">
+          <input type="time" id="qmed-new-time" style="flex:1;">
+          <button class="btn btn-ghost btn-sm" onclick="addQMedTime()">+ Add Time</button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-med')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveQMed()">Save Medication</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Alert Modal -->
+<div class="modal-overlay" id="modal-alert">
+  <div class="modal" style="width:480px;">
+    <div class="modal-header">
+      <div class="modal-title">New Alert</div>
+      <button class="modal-close" onclick="closeModal('modal-alert')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid form-grid-2">
+        <div class="form-row"><label>Type</label><select id="new-alert-type">
+          <option value="critical">Critical</option><option value="medication">Medication</option>
+          <option value="admission">Admission</option><option value="discharge">Discharge</option>
+          <option value="shift">Shift/Transfer</option><option value="lab">Lab</option>
+        </select></div>
+        <div class="form-row"><label>Severity</label><select id="new-alert-severity">
+          <option value="critical">Critical</option><option value="warning">Warning</option><option value="info">Info</option>
+        </select></div>
+        <div class="form-row"><label>Room Number</label><input type="number" id="new-alert-room"></div>
+        <div class="form-row"><label>Patient Name</label><input type="text" id="new-alert-patient"></div>
+        <div class="form-row"><label>Icon (emoji)</label><input type="text" id="new-alert-icon" placeholder="🚨" maxlength="4"></div>
+        <div class="form-row"><label>Color (hex)</label><input type="text" id="new-alert-color" placeholder="#FF3B30"></div>
+      </div>
+      <div class="form-row" style="margin-top:14px;"><label>Message</label><textarea id="new-alert-msg" placeholder="Describe the alert…"></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-alert')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveNewAlert()">Create Alert</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"><span class="toast-icon" id="toast-icon"></span><span id="toast-msg"></span></div>
+
+<script src="/admin.js" defer></script>
+</body>
+</html>
