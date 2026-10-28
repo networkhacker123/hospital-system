@@ -20,4 +20,4 @@ The connection string stays in `.env`, which is ignored by Git. Never put databa
 
 The admin page uses same-origin `/api` requests. Main endpoints are `/api/rooms`, `/api/alerts`, `/api/settings`, and `/api/health`. Room routes also support medication and environment edits. The UI is in `public/admin.html`, `public/admin.css`, and `public/admin.js`.
 
-This project does not include a MongoDB server. If health reports 503, start your local MongoDB service or use a reachable Atlas URI in `.env`.
+This project does'nt  include a MongoDB server. If health reports 503, start your local MongoDB service or use a reachable Atlas URI in `.env`
